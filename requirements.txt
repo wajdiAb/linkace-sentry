@@ -1,0 +1,13 @@
+FastAPI
+httpx
+APScheduler
+tenacity
+pydantic
+pydantic-settings
+python-dotenv
+boto3
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+coverage

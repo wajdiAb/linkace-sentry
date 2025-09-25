@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkace-sentry"
+version = "0.1.0"
+description = "A monitoring service for LinkAce bookmarks"
+requires-python = ">=3.8"
+dependencies = [
+    "httpx",
+    "pytest",
+    "pytest-asyncio"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
