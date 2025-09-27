@@ -50,6 +50,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y docker.io docker-compose
 
+          
+          # Clean up ALL existing containers first
+          echo "🧹 Cleaning up existing containers..."
+          docker stop $(docker ps -q) 2>/dev/null || true
+          docker rm $(docker ps -aq) 2>/dev/null || true
+
+          # Clean up directories and start fresh
+          cd /home/ubuntu
+          rm -rf LinkAce2 linkace-sentry
+          mkdir -p LinkAce2
+          cd LinkAce2
+
           # Create/overwrite .env for compose
           cat > /home/ubuntu/LinkAce2/.env << EOF
           LINKACE_BASE_URL=http://localhost:8080
@@ -63,17 +75,6 @@ jobs:
           TAG_REDIRECTED_NAME=redirected
           UPDATE_MODE=tags
           EOF
-
-          # Clean up ALL existing containers first
-          echo "🧹 Cleaning up existing containers..."
-          docker stop $(docker ps -q) 2>/dev/null || true
-          docker rm $(docker ps -aq) 2>/dev/null || true
-
-          # Clean up directories and start fresh
-          cd /home/ubuntu
-          rm -rf LinkAce2 linkace-sentry
-          mkdir -p LinkAce2
-          cd LinkAce2
 
            # Clone the complete repository for source code
           echo "📥 Cloning linkace-sentry repository..."
