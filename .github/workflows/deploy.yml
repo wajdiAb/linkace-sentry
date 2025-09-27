@@ -64,15 +64,24 @@ jobs:
           UPDATE_MODE=tags
           EOF
 
-          # Clean up existing containers
-          docker stop linkace-sentry linkace-app 2>/dev/null || true
-          docker rm linkace-sentry linkace-app 2>/dev/null || true
+          # Clean up ALL existing containers first
+          echo "🧹 Cleaning up existing containers..."
+          docker stop $(docker ps -q) 2>/dev/null || true
+          docker rm $(docker ps -aq) 2>/dev/null || true
 
-          # Clone the repository directly to EC2 (avoids permission issues)
-          echo "📥 Cloning repository..."
-          git clone https://github.com/wajdiAb/linkace-sentry.git . || \
-          (git init && git remote add origin https://github.com/wajdiAb/linkace-sentry.git && git pull origin main)
+          # Clean up directories and start fresh
+          cd /home/ubuntu
+          rm -rf LinkAce2 linkace-sentry
+          mkdir -p LinkAce2
+          cd LinkAce2
 
+           # Clone the complete repository for source code
+          echo "📥 Cloning linkace-sentry repository..."
+          git clone https://github.com/wajdiAb/linkace-sentry.git
+          
+          # Copy the environment file to the cloned repo
+          cp .env linkace-sentry/
+          cd linkace-sentry
 
           # starting linkace application
           cd ~/LinkAce2
@@ -80,16 +89,20 @@ jobs:
           chmod 0766 database.sqlite
           docker run -d -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
           
-          # # Pull the specific image version
-          # docker pull wajdiab/linkace-sentry:0.0.2
-
+          # Build and start LinkAce Sentry (this includes source code)
+          echo "🔍 Building and starting LinkAce Sentry..."
           
-          # cd ~/linkace-sentry
-          # Stop existing containers and deploy
-          docker compose down
+          # Make sure we're in the right directory with source code
+          ls -la src/  # Verify source code exists
           
-          # Use docker compose up with the existing image
-          docker compose up -d
+          # Build the image locally to include source code
+          docker build -t linkace-sentry-local .
+          
+          # Update docker-compose to use local build
+          sed -i 's/image: wajdiab\/linkace-sentry:0\.0\.2/image: linkace-sentry-local/' docker-compose.yml
+          
+          # Start the service
+          docker compose up -d linkace-sentry
           
           # Verify the deployment
           docker ps
