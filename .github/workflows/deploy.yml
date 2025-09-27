@@ -134,6 +134,18 @@ jobs:
           docker logs linkace-sentry --tail 100
 
     - name: Test Application Code
+      env:
+        # Set the required environment variables for testing
+        LINKACE_API_TOKEN: ${{ secrets.LINKACE_API_TOKEN_EC2 }}
+        ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        AWS_SNS_TOPIC_ARN: ${{ secrets.AWS_SNS_TOPIC_ARN }}
+        AWS_REGION: eu-west-1
+        LINKACE_BASE_URL: http://localhost:8080
+        CHECK_INTERVAL_MIN: 30
+        CONCURRENCY: 10
+        TAG_DEAD_NAME: dead
+        TAG_REDIRECTED_NAME: redirected
+        UPDATE_MODE: tags 
       run: |
         # Run existing pytest suite
         pytest tests/ -v --tb=short
