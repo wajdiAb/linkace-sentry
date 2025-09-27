@@ -102,26 +102,35 @@ jobs:
           EOF
 
           echo "🔑 Generating API token..."
-          API_TOKEN=$(docker exec -i -w /app linkace_app_1 php -r '
-          require "vendor/autoload.php";
-          $app = require "bootstrap/app.php";
-          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-          $kernel->bootstrap();
-          $user = App\Models\User::where("email", getenv("LINKACE_EMAIL"))->first();
-          if (!$user) { fwrite(STDERR, "ERROR: User not found\n"); exit(1); }
-          echo $user->createToken("LinkAce-Sentry-Auto-Token")->plainTextToken;
-          ' 2>/dev/null | tr -d "\r\n")
+          API_TOKEN=$(
+            docker exec -i -w /app linkace_app_1 bash -lc '
+              set -e
+              php -r "
+                require \"vendor/autoload.php\";
+                \$app = require \"bootstrap/app.php\";
+                \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+                \$kernel->bootstrap();
+
+                // 🔒 Query by the exact email you just registered (no getenv dependency)
+                \$email = \"'${{ secrets.LINKACE_EMAIL }}'\";
+                \$user = App\\Models\\User::where(\"email\", \$email)->first();
+                if (!\$user) { fwrite(STDERR, \"NO_USER_FOR_\".\$email.\"\\n\"); exit(2); }
+                echo \$user->createToken(\"LinkAce-Sentry-Auto-Token\")->plainTextToken;
+              ";
+            ' 2>/dev/null | tr -d '\r\n'
+          )
 
           if [ -z "$API_TOKEN" ]; then
-            echo "❌ Failed to generate API token automatically"
+            echo "❌ Failed to generate API token automatically (empty token)"
+            # quick diagnostics:
+            docker exec -i -w /app linkace_app_1 php artisan --version || true
+            docker exec -i -w /app linkace_app_1 php -r 'echo file_exists("vendor/autoload.php") ? "autoload:yes\n":"autoload:no\n";' || true
             exit 1
           fi
 
           echo "::add-mask::$API_TOKEN"
-          echo "✅ API token generated successfully! First 20 chars: ${API_TOKEN:0:20}..."
-
-          echo "✅ API token generated successfully!"
-          echo "Token (first 20 chars): ${API_TOKEN:0:20}..."
+          echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
+          
 
           # Add some test bookmarks to verify everything works
           echo "📚 Adding test bookmarks..."
