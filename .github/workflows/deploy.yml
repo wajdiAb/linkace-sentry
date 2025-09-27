@@ -57,6 +57,10 @@ jobs:
           docker rm $(docker ps -aq) 2>/dev/null || true
 
           
+          # Clean up directories completely and start fresh
+          cd /home/ubuntu
+          rm -rf LinkAce2 linkace-sentry
+          mkdir -p LinkAce2
           cd LinkAce2
 
           # Create/overwrite .env for compose
