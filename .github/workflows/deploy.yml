@@ -68,6 +68,11 @@ jobs:
           UPDATE_MODE=tags
           EOF
 
+          # Clean up existing containers
+          docker stop linkace-sentry linkace-app 2>/dev/null || true
+          docker rm linkace-sentry linkace-app 2>/dev/null || true
+
+          
           # starting linkace application
           cd ~/LinkAce2
           touch database.sqlite
@@ -75,7 +80,7 @@ jobs:
           docker run -d -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
           
           # Pull the specific image version
-          docker pull wajdiab/linkace-sentry:0.0.1
+          docker pull wajdiab/linkace-sentry:0.0.2
           
           # cd ~/linkace-sentry
           # Stop existing containers and deploy
