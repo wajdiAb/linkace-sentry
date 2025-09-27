@@ -58,11 +58,9 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           # Update and install Docker if not already installed
-          sudo apt-get update
-          sudo apt-get install -y docker.io docker-compose
-          # sudo apt install -y python3-pip
-          # pip3 install pytest
-
+          sudo apt-get update -y
+          sudo apt-get install -y docker.io docker-compose-plugin git jq
+          sudo usermod -aG docker ubuntu || true
 
           
           # Clean up ALL existing containers first
@@ -102,27 +100,24 @@ jobs:
           ${{ secrets.LINKACE_PASSWORD }}
           EOF
 
-          # Generate API token automatically
           echo "🔑 Generating API token..."
-          API_TOKEN=$(docker exec linkace_app_1 php artisan tinker --execute="
-            \$user = App\Models\User::where('email', '${{ secrets.LINKACE_EMAIL }}')->first();
-            if (\$user) {
-              \$token = \$user->createToken('LinkAce-Sentry-Auto-Token');
-              echo \$token->plainTextToken;
-            } else {
-              echo 'ERROR: User not found';
-            }
-          " 2>/dev/null | tail -1 | tr -d '\r\n')
+          API_TOKEN=$(docker exec -i -w /app linkace_app_1 php -r '
+          require "vendor/autoload.php";
+          $app = require "bootstrap/app.php";
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel->bootstrap();
+          $user = App\Models\User::where("email", getenv("LINKACE_EMAIL"))->first();
+          if (!$user) { fwrite(STDERR, "ERROR: User not found\n"); exit(1); }
+          echo $user->createToken("LinkAce-Sentry-Auto-Token")->plainTextToken;
+          ' 2>/dev/null | tr -d "\r\n")
 
-          if [[ "$API_TOKEN" == "ERROR:"* ]] || [[ -z "$API_TOKEN" ]]; then
+          if [ -z "$API_TOKEN" ]; then
             echo "❌ Failed to generate API token automatically"
-            echo "📝 Manual token generation required. Please:"
-            echo "1. Visit http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_EC2_IP'):8080"
-            echo "2. Login with: ${{ secrets.LINKACE_EMAIL }}"
-            echo "3. Go to Settings → API → Generate new token"
-            echo "4. Update your GitHub secrets with the new token"
             exit 1
           fi
+
+          echo "::add-mask::$API_TOKEN"
+          echo "✅ API token generated successfully! First 20 chars: ${API_TOKEN:0:20}..."
 
           echo "✅ API token generated successfully!"
           echo "Token (first 20 chars): ${API_TOKEN:0:20}..."
