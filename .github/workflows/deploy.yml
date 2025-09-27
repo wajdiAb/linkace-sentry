@@ -29,6 +29,16 @@ jobs:
     - name: Get code
       uses: actions/checkout@v4
     
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install test dependencies
+      run: |
+        pip install pytest pytest-asyncio httpx mock allure-pytest
+        pip install docker paramiko boto3
+    
     - name: Copy docker-compose file to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -51,7 +61,7 @@ jobs:
           sudo apt-get install -y docker.io docker-compose
           sudo apt install -y python3-pip
           pip3 install pytest
-          
+
 
           
           # Clean up ALL existing containers first
@@ -122,4 +132,8 @@ jobs:
           docker ps
           docker logs linkace-sentry --tail 100
 
-          pytest tests/* -v
+    - name: Test Application Code
+      run: |
+        # Run existing pytest suite
+        pytest tests/ -v --tb=short
+        echo "✅ Application tests passed"
