@@ -49,6 +49,9 @@ jobs:
           # Update and install Docker if not already installed
           sudo apt-get update
           sudo apt-get install -y docker.io docker-compose
+          sudo apt install -y python3-pip
+          pip3 install pytest
+          
 
           
           # Clean up ALL existing containers first
@@ -118,3 +121,5 @@ jobs:
           # Verify the deployment
           docker ps
           docker logs linkace-sentry --tail 100
+
+          pytest tests/* -v
