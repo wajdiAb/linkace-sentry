@@ -67,6 +67,7 @@ jobs:
           echo "🧹 Cleaning up existing containers..."
           docker stop $(docker ps -q) 2>/dev/null || true
           docker rm $(docker ps -aq) 2>/dev/null || true
+          docker system prune -af || true
 
           
           # Clean up directories completely and start fresh
