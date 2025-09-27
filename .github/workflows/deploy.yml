@@ -77,19 +77,7 @@ jobs:
           mkdir -p LinkAce2
           cd LinkAce2
 
-          # Create/overwrite .env for compose
-          cat > /home/ubuntu/LinkAce2/.env << EOF
-          LINKACE_BASE_URL=http://localhost:8080
-          LINKACE_API_TOKEN=${{ secrets.LINKACE_API_TOKEN_EC2 }}
-          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
-          AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
-          AWS_REGION=eu-west-1
-          CHECK_INTERVAL_MIN=30
-          CONCURRENCY=10
-          TAG_DEAD_NAME=dead
-          TAG_REDIRECTED_NAME=redirected
-          UPDATE_MODE=tags
-          EOF
+        
 
            # Clone the complete repository for source code
           echo "📥 Cloning linkace-sentry repository..."
@@ -113,6 +101,105 @@ jobs:
           ${{ secrets.LINKACE_EMAIL }}
           ${{ secrets.LINKACE_PASSWORD }}
           EOF
+
+          # Generate API token automatically
+          echo "🔑 Generating API token..."
+          API_TOKEN=$(docker exec linkace_app_1 php artisan tinker --execute="
+            \$user = App\Models\User::where('email', '${{ secrets.LINKACE_EMAIL }}')->first();
+            if (\$user) {
+              \$token = \$user->createToken('LinkAce-Sentry-Auto-Token');
+              echo \$token->plainTextToken;
+            } else {
+              echo 'ERROR: User not found';
+            }
+          " 2>/dev/null | tail -1 | tr -d '\r\n')
+
+          if [[ "$API_TOKEN" == "ERROR:"* ]] || [[ -z "$API_TOKEN" ]]; then
+            echo "❌ Failed to generate API token automatically"
+            echo "📝 Manual token generation required. Please:"
+            echo "1. Visit http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_EC2_IP'):8080"
+            echo "2. Login with: ${{ secrets.LINKACE_EMAIL }}"
+            echo "3. Go to Settings → API → Generate new token"
+            echo "4. Update your GitHub secrets with the new token"
+            exit 1
+          fi
+
+          echo "✅ API token generated successfully!"
+          echo "Token (first 20 chars): ${API_TOKEN:0:20}..."
+
+          # Add some test bookmarks to verify everything works
+          echo "📚 Adding test bookmarks..."
+          
+          # Test bookmark 1 - Working link
+          curl -X POST "http://localhost:8080/api/v1/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "url": "https://httpbin.org/status/200",
+              "title": "Test Working Link",
+              "description": "This link should work fine"
+            }' || echo "⚠️ Failed to add working test link"
+
+          # Test bookmark 2 - Dead link (will trigger notification)
+          curl -X POST "http://localhost:8080/api/v1/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "url": "https://httpbin.org/status/404",
+              "title": "Test Dead Link", 
+              "description": "This link should be detected as dead"
+            }' || echo "⚠️ Failed to add dead test link"
+
+          # Test bookmark 3 - Redirect link
+          curl -X POST "http://localhost:8080/api/v1/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "url": "https://httpbin.org/redirect/3",
+              "title": "Test Redirect Link",
+              "description": "This link should be detected as redirected"
+            }' || echo "⚠️ Failed to add redirect test link"
+
+          # Test bookmark 4 - Slow response link
+          curl -X POST "http://localhost:8080/api/v1/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "url": "https://httpbin.org/delay/2",
+              "title": "Test Slow Link",
+              "description": "This link responds slowly but should work"
+            }' || echo "⚠️ Failed to add slow test link"
+
+          echo "✅ Test bookmarks added!"
+
+          # Verify bookmarks were added
+          echo "🔍 Verifying bookmarks..."
+          BOOKMARK_COUNT=$(curl -s "http://localhost:8080/api/v1/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" | jq -r '.meta.total // 0' 2>/dev/null || echo "0")
+
+          echo "📊 Total bookmarks in LinkAce: $BOOKMARK_COUNT"
+
+          if [ "$BOOKMARK_COUNT" -gt "0" ]; then
+            echo "✅ Bookmarks successfully added to LinkAce!"
+          else
+            echo "⚠️ No bookmarks found - API might not be working correctly"
+          fi
+
+          # Create/overwrite .env for compose
+          cat > /home/ubuntu/LinkAce2/.env << EOF
+          LINKACE_BASE_URL=http://localhost:8080
+          LINKACE_API_TOKEN=$API_TOKEN
+          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+          AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
+          AWS_REGION=eu-west-1
+          CHECK_INTERVAL_MIN=30
+          CONCURRENCY=10
+          TAG_DEAD_NAME=dead
+          TAG_REDIRECTED_NAME=redirected
+          UPDATE_MODE=tags
+          EOF
+
 
           # Build and start LinkAce Sentry (this includes source code)
           echo "🔍 Building and starting LinkAce Sentry..."
