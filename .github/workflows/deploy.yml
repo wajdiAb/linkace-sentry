@@ -37,6 +37,16 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         source: "docker-compose.yml"
         target: "/home/ubuntu/LinkAce2/"
+    
+    - name: Copy project files to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "."
+        target: "/home/ubuntu/LinkAce2/"
+        strip_components: 1
 
     # - name: Configure AWS credentials
     #   uses: aws-actions/configure-aws-credentials@v1
@@ -72,15 +82,15 @@ jobs:
           docker stop linkace-sentry linkace-app 2>/dev/null || true
           docker rm linkace-sentry linkace-app 2>/dev/null || true
 
-          
+
           # starting linkace application
           cd ~/LinkAce2
           touch database.sqlite
           chmod 0766 database.sqlite
           docker run -d -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
           
-          # Pull the specific image version
-          docker pull wajdiab/linkace-sentry:0.0.2
+          # # Pull the specific image version
+          # docker pull wajdiab/linkace-sentry:0.0.2
           
           # cd ~/linkace-sentry
           # Stop existing containers and deploy
