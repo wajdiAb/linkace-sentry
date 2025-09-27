@@ -90,6 +90,15 @@ jobs:
           chmod 0766 database.sqlite
           docker run -d -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
           
+          sleep 10
+          docker exec -i linkace_dev-php-1 php artisan migrate --force
+          docker exec -i linkace_dev-php-1 php artisan setup:complete
+          docker exec -i linkace_dev-php-1 php artisan registeruser --admin <<EOF
+          ${{ secrets.LINKACE_NAME }}
+          ${{ secrets.LINKACE_EMAIL }}
+          ${{ secrets.LINKACE_PASSWORD }}
+          EOF
+
           # Build and start LinkAce Sentry (this includes source code)
           echo "🔍 Building and starting LinkAce Sentry..."
           
