@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 # Set working directory
 WORKDIR /app
@@ -31,20 +31,24 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY src/ ./src/
 COPY pyproject.toml .
 
-# Create non-root user for security
-RUN useradd -m appuser && chown -R appuser:appuser /app
+# Create non-root user for security and set up AWS credentials directory
+RUN useradd -m appuser && \
+    mkdir -p /home/appuser/.aws && \
+    chown -R appuser:appuser /app /home/appuser/.aws && \
+    chmod 700 /home/appuser/.aws
 USER appuser
+ENV HOME=/home/appuser
 
 # Set Python path
 ENV PYTHONPATH=/app
 
-# Default environment variables (can be overridden at runtime)
-ENV LINKACE_BASE_URL="http://localhost:8080"
-ENV LINKACE_API_TOKEN=""
-ENV AWS_SNS_TOPIC_ARN=""
-ENV AWS_ACCESS_KEY_ID=""
-ENV AWS_SECRET_ACCESS_KEY=""
-ENV AWS_DEFAULT_REGION="us-east-1"
+# Document required environment variables
+# LINKACE_BASE_URL
+# LINKACE_API_TOKEN
+# AWS_SNS_TOPIC_ARN
+# AWS_ACCESS_KEY_ID
+# AWS_SECRET_ACCESS_KEY
+# AWS_DEFAULT_REGION
 
 # Expose port if needed (FastAPI default port)
 EXPOSE 8000

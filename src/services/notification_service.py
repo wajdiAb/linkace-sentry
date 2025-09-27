@@ -41,12 +41,20 @@ class NotificationService:
                 }
             }
             
+            # Log the attempt to send notification
+            logger.info(f"Attempting to send notification for dead link: {link_data.get('url')}")
+            logger.info(f"Using SNS topic: {self.topic_arn}")
+            logger.info(f"With region: {self.sns.meta.region_name}")
+            
             # Send the notification
-            self.sns.publish(
+            response = self.sns.publish(
                 TopicArn=self.topic_arn,
                 Message=json.dumps(message),
                 Subject=f"Dead Link Found: {link_data.get('title', link_data.get('url'))}"
             )
+            
+            # Log successful notification
+            logger.info(f"Successfully sent notification. MessageId: {response.get('MessageId')}")
             
             logger.info("Sent notification for dead link: %s", link_data.get("url"))
             

@@ -1,0 +1,94 @@
+name: Deploy to EC2
+
+on:
+  pull_request:
+    branches:
+      - main  # or your deployment branch
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test against'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Get code
+      uses: actions/checkout@v4
+    
+    - name: Copy docker-compose file to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.yml"
+        target: "/home/ubuntu/LinkAce2/"
+
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v1
+    #   with:
+    #     aws-region: eu-west-1
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Update and install Docker if not already installed
+          sudo apt-get update
+          sudo apt-get install -y docker.io docker-compose
+
+          # Create/overwrite .env for compose
+          cat > /home/ubuntu/LinkAce2/.env << EOF
+          LINKACE_BASE_URL=http://localhost:8080
+          LINKACE_API_TOKEN=${{ secrets.LINKACE_API_TOKEN_EC2 }}
+          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
+          AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
+          AWS_REGION=eu-west-1
+          CHECK_INTERVAL_MIN=30
+          CONCURRENCY=10
+          TAG_DEAD_NAME=dead
+          TAG_REDIRECTED_NAME=redirected
+          UPDATE_MODE=tags
+          EOF
+
+          # Clean up existing containers
+          docker stop linkace-sentry linkace-app 2>/dev/null || true
+          docker rm linkace-sentry linkace-app 2>/dev/null || true
+
+          
+          # starting linkace application
+          cd ~/LinkAce2
+          touch database.sqlite
+          chmod 0766 database.sqlite
+          docker run -d -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
+          
+          # Pull the specific image version
+          docker pull wajdiab/linkace-sentry:0.0.2
+          
+          # cd ~/linkace-sentry
+          # Stop existing containers and deploy
+          docker compose down
+          
+          # Use docker compose up with the existing image
+          docker compose up -d
+          
+          # Verify the deployment
+          docker ps
+          docker logs linkace-sentry --tail 100

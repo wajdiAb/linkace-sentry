@@ -30,6 +30,11 @@ class LinkAceSentry:
     
     async def start(self):
         """Start the service."""
+        logger.info("Initializing LinkAce Sentry service...")
+        logger.info(f"Check interval: {settings.CHECK_INTERVAL_MIN} minutes")
+        logger.info(f"Concurrency: {settings.CONCURRENCY}")
+        logger.info(f"LinkAce URL: {settings.LINKACE_BASE_URL}")
+        
         # Setup scheduled job
         self.scheduler.add_job(
             self.run_once,
@@ -40,9 +45,12 @@ class LinkAceSentry:
         )
         self.scheduler.start()
         
-        logger.info(f"Service started, checking every {settings.CHECK_INTERVAL_MIN} minutes")
+        logger.info(f"✅ Scheduler started successfully!")
+        logger.info(f"📅 Next check will run in {settings.CHECK_INTERVAL_MIN} minutes")
+        logger.info(f"🔄 Subsequent checks will run every {settings.CHECK_INTERVAL_MIN} minutes")
         
         # Run initial check
+        logger.info("🚀 Running initial bookmark check...")
         await self.run_once()
     
     async def stop(self):
@@ -52,8 +60,10 @@ class LinkAceSentry:
     
     async def run_once(self):
         """Run one complete check cycle."""
-        logger.info("Starting bookmark check cycle")
-        start_time = datetime.now()
+        cycle_start = datetime.now()
+        logger.info("=" * 60)
+        logger.info(f"🔍 STARTING BOOKMARK CHECK CYCLE at {cycle_start.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 60)
         
         try:
             page = 1
@@ -99,18 +109,23 @@ class LinkAceSentry:
                     
                 page += 1
             
-            duration = (datetime.now() - start_time).total_seconds()
+            duration = (datetime.now() - cycle_start).total_seconds()
+            logger.info("=" * 60)
             logger.info(
-                f"Check cycle completed",
+                f"✅ CHECK CYCLE COMPLETED in {round(duration, 2)}s",
                 extra={
                     "total_processed": total_processed,
                     "duration_seconds": round(duration, 2)
                 }
             )
+            logger.info(f"📊 Processed {total_processed} bookmarks")
+            logger.info(f"⏰ Next check in {settings.CHECK_INTERVAL_MIN} minutes")
+            logger.info("=" * 60)
             
         except Exception as e:
-            logger.error(f"Check cycle failed: {e}")
-            raise
+            logger.error(f"❌ Check cycle failed: {e}")
+            logger.error("🔧 This error will not stop the scheduler - next check will continue as scheduled")
+            # Don't re-raise the exception to keep scheduler running
     
     async def _process_bookmark(self, bookmark: Bookmark):
         """Process a single bookmark."""
@@ -182,9 +197,7 @@ class LinkAceSentry:
         
         # Handle dead status
         if not result.is_alive:
-            if self.cache.should_mark_dead(bookmark.id):
-                if settings.TAG_DEAD_NAME not in current_tags:
-                        actions.add("add_dead")
+            actions.add("add_dead")  # Always add action for dead links
         else:
             if settings.TAG_DEAD_NAME in current_tags:
                 actions.add("remove_dead")

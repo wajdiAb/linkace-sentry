@@ -1,15 +1,27 @@
-version: '3.8'
-
 services:
   linkace-sentry:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      - LINKACE_API_URL=http://linkace:8080/api
-      - LINKACE_API_KEY=your_api_key_here
+    image: wajdiab/linkace-sentry:0.0.2
+    container_name: linkace-sentry
     volumes:
       - ./src:/app/src
-    ports:
-      - "8000:8000"
+      - ${AWS_CREDENTIALS_PATH:-/home/wajdi/.aws/credentials}:/home/appuser/.aws/credentials:ro
+    user: "1000:1000"
+    environment:
+      # Required settings
+      - LINKACE_BASE_URL=${LINKACE_BASE_URL:-http://localhost:8080}
+      - LINKACE_API_TOKEN=${LINKACE_API_TOKEN}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - AWS_SNS_TOPIC_ARN=${AWS_SNS_TOPIC_ARN}
+      - AWS_REGION=${AWS_REGION:-eu-west-1}
+      - AWS_SHARED_CREDENTIALS_FILE=/home/appuser/.aws/credentials
+      # Optional settings with defaults
+      - CHECK_INTERVAL_MIN=${CHECK_INTERVAL_MIN:-30}
+      - CONCURRENCY=${CONCURRENCY:-10}
+      - TAG_DEAD_NAME=${TAG_DEAD_NAME:-dead}
+      - TAG_REDIRECTED_NAME=${TAG_REDIRECTED_NAME:-redirected}
+      - UPDATE_MODE=${UPDATE_MODE:-tags}
+    network_mode: "host"
     restart: unless-stopped
