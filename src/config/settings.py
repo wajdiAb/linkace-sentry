@@ -1,7 +1,10 @@
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env", env_file_encoding='utf-8', extra='ignore')
+    
     LINKACE_BASE_URL: str = "http://localhost:8080"
     LINKACE_API_TOKEN: str
     CHECK_INTERVAL_MIN: int = 30
@@ -15,9 +18,5 @@ class Settings(BaseSettings):
     request_timeout_s: int = 30  # Default timeout of 30 seconds
     max_redirects: int = 5  # Maximum number of redirects to follow
     cache_db_path: str = "cache.db"  # SQLite database file for caching
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
 
 settings = Settings()
