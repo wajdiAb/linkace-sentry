@@ -142,64 +142,33 @@ jobs:
 
           echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
           
-          # Add some test bookmarks to verify everything works
           echo "📚 Adding test bookmarks..."
-          
-          # Test bookmark 1 - Working link
-          curl -X POST "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "url": "https://httpbin.org/status/200",
-              "title": "Test Working Link",
-              "description": "This link should work fine"
-            }' || echo "⚠️ Failed to add working test link"
 
-          # Test bookmark 2 - Dead link (will trigger notification)
-          curl -X POST "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "url": "https://httpbin.org/status/404",
-              "title": "Test Dead Link", 
-              "description": "This link should be detected as dead"
-            }' || echo "⚠️ Failed to add dead test link"
+          curl -sS -X POST "http://localhost:8080/api/v2/links" \
+            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/status/200","title":"Test Working Link","description":"This link should work fine"}' \
+            || echo "⚠️ Failed to add working test link"
 
-          # Test bookmark 3 - Redirect link
-          curl -X POST "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "url": "https://httpbin.org/redirect/3",
-              "title": "Test Redirect Link",
-              "description": "This link should be detected as redirected"
-            }' || echo "⚠️ Failed to add redirect test link"
+          curl -sS -X POST "http://localhost:8080/api/v2/links" \
+            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/status/404","title":"Test Dead Link","description":"This link should be detected as dead"}' \
+            || echo "⚠️ Failed to add dead test link"
 
-          # Test bookmark 4 - Slow response link
-          curl -X POST "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "url": "https://httpbin.org/delay/2",
-              "title": "Test Slow Link",
-              "description": "This link responds slowly but should work"
-            }' || echo "⚠️ Failed to add slow test link"
+          curl -sS -X POST "http://localhost:8080/api/v2/links" \
+            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/redirect/3","title":"Test Redirect Link","description":"This link should be detected as redirected"}' \
+            || echo "⚠️ Failed to add redirect test link"
 
-          echo "✅ Test bookmarks added!"
+          curl -sS -X POST "http://localhost:8080/api/v2/links" \
+            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" -H "Content-Type: application/json" \
+            -d '{"url":"https://httpbin.org/delay/2","title":"Test Slow Link","description":"This link responds slowly but should work"}' \
+            || echo "⚠️ Failed to add slow test link"
 
-          # Verify bookmarks were added
           echo "🔍 Verifying bookmarks..."
           BOOKMARK_COUNT=$(curl -s "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" \
-            -H "Content-Type: application/json" | jq -r '.meta.total // 0' 2>/dev/null || echo "0")
-
+            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" \
+            | jq -r '.meta.total // 0' 2>/dev/null || echo "0")
           echo "📊 Total bookmarks in LinkAce: $BOOKMARK_COUNT"
-
-          if [ "$BOOKMARK_COUNT" -gt "0" ]; then
-            echo "✅ Bookmarks successfully added to LinkAce!"
-          else
-            echo "⚠️ No bookmarks found - API might not be working correctly"
-          fi
 
           
 
