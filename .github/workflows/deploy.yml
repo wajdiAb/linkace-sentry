@@ -115,32 +115,33 @@ jobs:
           EOF
 
           echo "🔑 Generating API token..."
-          API_TOKEN=$(
-            docker exec -i -w /app linkace_app_1 bash -lc '
-              php -r "
-                require \"vendor/autoload.php\";
-                \$app = require \"bootstrap/app.php\";
-                \$kernel = \$app->make(Illuminate\\Contracts\\Console\\Kernel::class);
-                \$kernel->bootstrap();
-                \$email = \"'${{ secrets.LINKACE_EMAIL }}'\";
-                \$user = App\\Models\\User::where(\"email\", \$email)->first();
-                if (!\$user) { fwrite(STDERR, \"NO_USER\\n\"); exit(2); }
-                echo \$user->createToken(\"LinkAce-Sentry-Auto-Token\")->plainTextToken;
-              "
-            ' 2>/dev/null | tr -d '\r\n'
-          )
+          PHP_SNIPPET='
+          require "/app/vendor/autoload.php";
+          $app = require "/app/bootstrap/app.php";
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel->bootstrap();
 
-          # Token should be long-ish; bail if we got an error line instead
-          if [ -z "$API_TOKEN" ] || [[ "$API_TOKEN" =~ OCI\ runtime\ exec\ failed|NO_USER ]]; then
+          $email = getenv("LA_EMAIL");
+          $user  = \App\Models\User::where("email", $email)->first();
+          if (!$user) { fwrite(STDERR, "ERROR: user not found for $email\n"); exit(1); }
+          if (!method_exists($user, "createToken")) {
+              fwrite(STDERR, "ERROR: createToken() not available. Create a token in the UI instead.\n");
+              exit(2);
+          }
+          $token = $user->createToken("LinkAce-Sentry-Auto-Token");
+          echo "TOKEN=".$token->plainTextToken."\n";
+          ';
+
+          API_TOKEN=$(docker exec -e LA_EMAIL="${{ secrets.LINKACE_EMAIL }}" linkace_app_1 \
+            php -r "$PHP_SNIPPET" 2>&1 | sed -n 's/^TOKEN=//p' | tail -n1)
+
+          if [[ -z "$API_TOKEN" || "$API_TOKEN" != *"|"* ]]; then
             echo "❌ Failed to generate API token automatically"
-            # quick diagnostics
-            docker exec -i -w /app linkace_app_1 php -r 'echo "autoload=".(file_exists("vendor/autoload.php")?"yes":"no")."\n";' || true
             exit 1
           fi
 
-          echo "::add-mask::$API_TOKEN"
-          echo "✅ API token generated. First 12 chars: ${API_TOKEN:0:12}..."
-
+          echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
+          
           # Add some test bookmarks to verify everything works
           echo "📚 Adding test bookmarks..."
           
