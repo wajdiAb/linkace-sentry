@@ -149,7 +149,7 @@ jobs:
 
           # Create/overwrite .env for compose
           cat > /home/ubuntu/LinkAce2/.env << EOF
-          LINKACE_BASE_URL=http://localhost:8080
+          LINKACE_BASE_URL=http://host.docker.internal:8080
           LINKACE_API_TOKEN=$API_TOKEN
           ADMIN_TOKEN=$API_TOKEN
           AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
@@ -165,7 +165,7 @@ jobs:
           cp .env linkace-sentry/
           cd linkace-sentry
           rm -f docker-compose.yml
-          nano docker-compose.yml
+          
           cat > docker-compose.yml << 'EOL'
           services:
             linkace-sentry:
