@@ -39,15 +39,6 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio httpx mock allure-pytest
         pip install docker paramiko boto3
-    
-    # - name: Copy docker-compose file to EC2
-    #   uses: appleboy/scp-action@v0.1.7
-    #   with:
-    #     host: ${{ secrets.EC2_HOST }}
-    #     username: ubuntu
-    #     key: ${{ secrets.EC2_SSH_KEY }}
-    #     source: "docker-compose.yml"
-    #     target: "/home/ubuntu/LinkAce2/"
 
 
     - name: Deploy to EC2
@@ -75,29 +66,13 @@ jobs:
           rm -rf LinkAce2 linkace-sentry
           mkdir -p LinkAce2
           cd LinkAce2
-
-          # Create/overwrite .env for compose
-          cat > /home/ubuntu/LinkAce2/.env << EOF
-          LINKACE_BASE_URL=http://localhost:8080
-          LINKACE_API_TOKEN=$API_TOKEN
-          ADMIN_TOKEN=${{ secrets.ADMIN_TOKEN }}
-          AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
-          AWS_REGION=eu-west-1
-          CHECK_INTERVAL_MIN=30
-          CONCURRENCY=10
-          TAG_DEAD_NAME=dead
-          TAG_REDIRECTED_NAME=redirected
-          UPDATE_MODE=tags
-          EOF
         
 
            # Clone the complete repository for source code
           echo "📥 Cloning linkace-sentry repository..."
           git clone https://github.com/wajdiAb/linkace-sentry.git
           
-          # Copy the environment file to the cloned repo
-          cp .env linkace-sentry/
-          cd linkace-sentry
+          
 
           # starting linkace application
           cd ~/LinkAce2
@@ -165,13 +140,53 @@ jobs:
             || echo "⚠️ Failed to add slow test link"
 
           echo "🔍 Verifying bookmarks..."
-          BOOKMARK_COUNT=$(curl -s "http://localhost:8080/api/v2/links" \
-            -H "Authorization: Bearer $API_TOKEN" -H "Accept: application/json" \
-            | jq -r '.meta.total // 0' 2>/dev/null || echo "0")
-          echo "📊 Total bookmarks in LinkAce: $BOOKMARK_COUNT"
+          RESP=$(curl -sS -L "http://localhost:8080/api/v2/links" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Accept: application/json")
 
-          
+          TOTAL=$(echo "$RESP" | jq -r '(.meta.total // (.data | length) // 0)')
+          echo "📊 Total bookmarks in LinkAce: $TOTAL"
 
+          # Create/overwrite .env for compose
+          cat > /home/ubuntu/LinkAce2/.env << EOF
+          LINKACE_BASE_URL=http://localhost:8080
+          LINKACE_API_TOKEN=$API_TOKEN
+          ADMIN_TOKEN=$API_TOKEN
+          AWS_SNS_TOPIC_ARN=${{ secrets.AWS_SNS_TOPIC_ARN }}
+          AWS_REGION=eu-west-1
+          CHECK_INTERVAL_MIN=30
+          CONCURRENCY=10
+          TAG_DEAD_NAME=dead
+          TAG_REDIRECTED_NAME=redirected
+          UPDATE_MODE=tags
+          EOF
+
+          # Copy the environment file to the cloned repo
+          cp .env linkace-sentry/
+          cd linkace-sentry
+          rm -f docker-compose.yml
+          nano docker-compose.yml
+          cat > docker-compose.yml << 'EOL'
+          services:
+            linkace-sentry:
+              build:
+                context: .
+                dockerfile: Dockerfile
+              image: wajdiab/linkace-sentry:0.0.2
+              container_name: linkace-sentry
+              volumes:
+                - ./src:/app/src
+              user: "1000:1000"
+              env_file:
+                - .env
+              environment:
+                AWS_REGION: ${AWS_REGION}
+                AWS_SNS_TOPIC_ARN: ${AWS_SNS_TOPIC_ARN}
+
+              extra_hosts:
+                - "host.docker.internal:host-gateway"
+              restart: unless-stopped
+          EOL
 
           # Build and start LinkAce Sentry (this includes source code)
           echo "🔍 Building and starting LinkAce Sentry..."
@@ -199,7 +214,7 @@ jobs:
         ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         AWS_SNS_TOPIC_ARN: ${{ secrets.AWS_SNS_TOPIC_ARN }}
         AWS_REGION: eu-west-1
-        LINKACE_BASE_URL: http://localhost:8080
+        LINKACE_BASE_URL: http://${{ secrets.EC2_HOST }}:8080
         CHECK_INTERVAL_MIN: 30
         CONCURRENCY: 10
         TAG_DEAD_NAME: dead
