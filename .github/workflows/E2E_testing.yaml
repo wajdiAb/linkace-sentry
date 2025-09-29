@@ -252,8 +252,8 @@ jobs:
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
       with:
-        name: allure-report-api
-        path: ./allure-report
+        name: allure-results-api
+        path: ./allure-results
 
 
 
@@ -299,8 +299,8 @@ jobs:
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
       with:
-        name: allure-report-ui
-        path: ./allure-report
+        name: allure-results-ui
+        path: ./allure-results
 
 # Publish Allure report 
   publish-allure:
