@@ -219,6 +219,25 @@ jobs:
           # Verify the deployment
           docker ps
           docker logs linkace-sentry --tail 100
+    # NEW STEP: Extract the API token from the remote server
+    - name: Extract API Token
+      id: extract-token
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Read the API token from the file we saved
+          if [ -f /tmp/linkace_api_token.txt ]; then
+            API_TOKEN=$(cat /tmp/linkace_api_token.txt)
+            echo "✅ Retrieved API token: ${API_TOKEN:0:20}..."
+            # This won't work directly, so we'll use a different approach
+            echo "$API_TOKEN"
+          else
+            echo "❌ API token file not found!"
+            exit 1
+          fi
 
     # ALTERNATIVE: Use a different SSH action that can capture output
     - name: Get API Token from Server
