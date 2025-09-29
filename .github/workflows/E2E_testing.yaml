@@ -22,7 +22,7 @@ permissions:
   id-token: write
 
 env:
-  API_TOKEN:
+  API_TOKEN: # Will be set dynamically after deployment
 
 jobs:
   deploy-to-ec2:
@@ -123,7 +123,7 @@ jobs:
           fi
 
           echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
-        
+          API_TOKEN=$API_TOKEN
 
           echo "📚 Adding test bookmarks..."
 
@@ -246,7 +246,8 @@ jobs:
     - name: Run API tests
       env:
         BASE_URL: ${{ secrets.EC2_HOST }}
-        LINKACE_API_TOKEN: ${{ needs.deploy-to-ec2.outputs.api_token }}
+        # LINKACE_API_TOKEN: ${{ needs.deploy-to-ec2.outputs.api_token }}
+        LINKACE_API_TOKEN: $API_TOKEN
       run: |
         pytest API_tests/* -q --maxfail=1 --disable-warnings --tb=short --junitxml=api_results.xml --alluredir=./allure-results || true
         allure generate ./allure-results --clean -o ./allure-report || true
