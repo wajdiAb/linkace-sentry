@@ -302,7 +302,7 @@ jobs:
         name: allure-report-ui
         path: ./allure-report
 
-# Publish Allure report
+# Publish Allure report 
   publish-allure:
     runs-on: ubuntu-22.04
     needs: [API-test, UI-test]
