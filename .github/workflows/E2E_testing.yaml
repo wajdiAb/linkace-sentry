@@ -305,7 +305,7 @@ jobs:
 # Publish Allure report
   publish-allure:
     runs-on: ubuntu-22.04
-    needs: [API-test]
+    needs: [API-test, UI-test]
     if: always()
     permissions:
       pages: write
