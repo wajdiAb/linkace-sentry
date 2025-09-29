@@ -21,15 +21,14 @@ permissions:
   pages: write
   id-token: write
 
-env:
-  API_TOKEN: # Will be set dynamically after deployment
+
 
 jobs:
   deploy-to-ec2:
     runs-on: ubuntu-latest
 
-    outputs:
-      api_token: ${{ steps.deploy.outputs.api_token }}
+    #outputs:
+      #api_token: ${{ steps.deploy.outputs.api_token }}
 
     steps:
     - name: Get code
@@ -123,7 +122,11 @@ jobs:
           fi
 
           echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
-          API_TOKEN=$API_TOKEN
+          #   API_TOKEN=$API_TOKEN
+          
+          # Save API token to a file that we can read back
+          echo "$API_TOKEN" > /tmp/linkace_api_token.txt
+          chmod 600 /tmp/linkace_api_token.txt
 
           echo "📚 Adding test bookmarks..."
 
@@ -217,7 +220,24 @@ jobs:
           docker ps
           docker logs linkace-sentry --tail 100
 
-    
+    # ALTERNATIVE: Use a different SSH action that can capture output
+    - name: Get API Token from Server
+      id: get-token
+      run: |
+        # Use SSH to get the token and capture it
+        API_TOKEN=$(ssh -o StrictHostKeyChecking=no -i <(echo "${{ secrets.EC2_SSH_KEY }}") ubuntu@${{ secrets.EC2_HOST }} "cat /tmp/linkace_api_token.txt 2>/dev/null || echo 'TOKEN_NOT_FOUND'")
+        
+        if [[ "$API_TOKEN" == "TOKEN_NOT_FOUND" || -z "$API_TOKEN" ]]; then
+          echo "❌ Failed to retrieve API token from server"
+          exit 1
+        fi
+        
+        echo "✅ Successfully retrieved API token"
+        echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
+
+    # Update the job output to use the correct step
+    outputs:
+      api_token: ${{ steps.get-token.outputs.api_token }}
 
   API-test:
     runs-on: ubuntu-latest
