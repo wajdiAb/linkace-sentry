@@ -27,8 +27,8 @@ jobs:
   deploy-to-ec2:
     runs-on: ubuntu-latest
 
-    #outputs:
-      #api_token: ${{ steps.deploy.outputs.api_token }}
+    outputs:
+      api_token: ${{ steps.get-token-alt.outputs.api_token }}
 
     steps:
     - name: Get code
@@ -221,26 +221,8 @@ jobs:
           docker logs linkace-sentry --tail 100
     
 
-    # FIXED: Use appleboy/ssh-action to retrieve the token
-    - name: Get API Token from Server
-      id: get-token
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          if [ -f /tmp/linkace_api_token.txt ]; then
-            API_TOKEN=$(cat /tmp/linkace_api_token.txt)
-            echo "✅ Retrieved API token: ${API_TOKEN:0:20}..."
-            echo "$API_TOKEN"
-          else
-            echo "❌ API token file not found!"
-            exit 1
-          fi
-
-    # Alternative approach: Save SSH key to file and use regular SSH
-    - name: Alternative - Get API Token with SSH Key File
+    # Get API Token from Server
+    - name: Get API Token with SSH Key File
       id: get-token-alt
       run: |
         # Create SSH key file
@@ -263,9 +245,7 @@ jobs:
 
 
     # Update the job output to use the correct step
-    outputs:
-      api_token: ${{ steps.get-token.outputs.api_token }}
-
+    
   API-test:
     runs-on: ubuntu-latest
 
@@ -289,12 +269,17 @@ jobs:
         pip install -r requirements.txt
         pip install pytest pytest-asyncio httpx mock allure-pytest selenium webdriver-manager python-dotenv
         pip install docker paramiko boto3
-
+    
+    - name: Install Allure
+      run: |
+        npm install -g allure-commandline
+        allure --version
+    
     - name: Run API tests
       env:
-        BASE_URL: ${{ secrets.EC2_HOST }}
+        BASE_URL: http://${{ secrets.EC2_HOST }}:8080
         # LINKACE_API_TOKEN: ${{ needs.deploy-to-ec2.outputs.api_token }}
-        LINKACE_API_TOKEN: $API_TOKEN
+        LINKACE_API_TOKEN: ${{ needs.deploy-to-ec2.outputs.api_token }}
       run: |
         pytest API_tests/* -q --maxfail=1 --disable-warnings --tb=short --junitxml=api_results.xml --alluredir=./allure-results || true
         allure generate ./allure-results --clean -o ./allure-report || true
@@ -335,7 +320,12 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y google-chrome-stable
-
+    
+    - name: Install Allure
+      run: |
+        npm install -g allure-commandline
+        allure --version    
+    
     - name: Run Selenium tests
       env:
         HEADLESS: true
