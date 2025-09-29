@@ -219,40 +219,48 @@ jobs:
           # Verify the deployment
           docker ps
           docker logs linkace-sentry --tail 100
-    # NEW STEP: Extract the API token from the remote server
-    - name: Extract API Token
-      id: extract-token
+    
+
+    # FIXED: Use appleboy/ssh-action to retrieve the token
+    - name: Get API Token from Server
+      id: get-token
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # Read the API token from the file we saved
           if [ -f /tmp/linkace_api_token.txt ]; then
             API_TOKEN=$(cat /tmp/linkace_api_token.txt)
             echo "✅ Retrieved API token: ${API_TOKEN:0:20}..."
-            # This won't work directly, so we'll use a different approach
             echo "$API_TOKEN"
           else
             echo "❌ API token file not found!"
             exit 1
           fi
 
-    # ALTERNATIVE: Use a different SSH action that can capture output
-    - name: Get API Token from Server
-      id: get-token
+    # Alternative approach: Save SSH key to file and use regular SSH
+    - name: Alternative - Get API Token with SSH Key File
+      id: get-token-alt
       run: |
-        # Use SSH to get the token and capture it
-        API_TOKEN=$(ssh -o StrictHostKeyChecking=no -i <(echo "${{ secrets.EC2_SSH_KEY }}") ubuntu@${{ secrets.EC2_HOST }} "cat /tmp/linkace_api_token.txt 2>/dev/null || echo 'TOKEN_NOT_FOUND'")
+        # Create SSH key file
+        echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ssh_key
+        chmod 600 /tmp/ssh_key
+        
+        # Use SSH to get the token
+        API_TOKEN=$(ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key ubuntu@${{ secrets.EC2_HOST }} "cat /tmp/linkace_api_token.txt 2>/dev/null || echo 'TOKEN_NOT_FOUND'")
+        
+        # Clean up SSH key file
+        rm -f /tmp/ssh_key
         
         if [[ "$API_TOKEN" == "TOKEN_NOT_FOUND" || -z "$API_TOKEN" ]]; then
           echo "❌ Failed to retrieve API token from server"
           exit 1
         fi
         
-        echo "✅ Successfully retrieved API token"
+        echo "✅ Successfully retrieved API token: ${API_TOKEN:0:20}..."
         echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
+
 
     # Update the job output to use the correct step
     outputs:
