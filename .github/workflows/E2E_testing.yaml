@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      api_token: ${{ steps.deploy.outputs.api_token }}
+      api_token: ${{ steps.capture.outputs.api_token }}
 
     steps:
     - name: Get code
@@ -123,6 +123,8 @@ jobs:
 
           echo "✅ API token generated. First 20 chars: ${API_TOKEN:0:20}..."
           
+          echo -n "$API_TOKEN" > /home/ubuntu/LinkAce2/api_token.txt
+
           echo "📚 Adding test bookmarks..."
 
           curl -sS -X POST "http://localhost:8080/api/v2/links" \
@@ -215,7 +217,19 @@ jobs:
           docker ps
           docker logs linkace-sentry --tail 100
 
+    - name: Copy token back
+      uses: appleboy/scp-action@v0.1.7
+      with:
+            host: ${{ secrets.EC2_HOST }}
+            username: ubuntu
+            key: ${{ secrets.EC2_SSH_KEY }}
+            source: "/home/ubuntu/LinkAce2/api_token.txt"
+            target: "./"
 
+    - name: Expose token as job output
+      id: capture
+      run: |
+        echo "api_token=$(cat api_token.txt)" >> "$GITHUB_OUTPUT"
 
   API-test:
     runs-on: ubuntu-latest
