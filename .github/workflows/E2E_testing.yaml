@@ -354,7 +354,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     env:
-      IMAGE_TAG: LinkAce.latest
+      IMAGE_TAG: LinkAce:2.x
       LinkAce_URL: http://${{ secrets.EC2_HOST }}:8080/
       TEST_ENVIRONMENT: ${{ github.event_name == 'pull_request' && format('PR-{0}', github.event.pull_request.number) || format('{0}', github.event.inputs.environment || 'Manual') }}
     steps:
@@ -385,11 +385,9 @@ jobs:
           Environment=${{ env.TEST_ENVIRONMENT }}
           Image.Tag=${{ env.IMAGE_TAG }}
           LinkAce.URL=${{ env.LinkAce_URL }}
-          GitHub.Run.ID=${{ github.run_id }}
           GitHub.Actor=${{ github.actor }}
           Workflow.Trigger=${{ github.event_name }}
           Branch=${{ github.head_ref || github.ref_name }}
-          Commit.SHA=${{ github.sha }}
           Repository=${{ github.repository }}
           Timestamp=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
           EOF
