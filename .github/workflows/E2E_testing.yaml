@@ -84,7 +84,7 @@ jobs:
           cd ~/LinkAce2
           touch database.sqlite
           chmod 0766 database.sqlite
-          docker run -d --name linkace_app_1 -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace
+          docker run -d --name linkace_app_1 -p "8080:80" -v "./database.sqlite:/app/database/database.sqlite" linkace/linkace:2.x
           
           sleep 10
           docker exec -i linkace_app_1 php artisan migrate --force
