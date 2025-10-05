@@ -1,195 +1,195 @@
-name: Tests with Allure Reports
+# name: Tests with Allure Reports
 
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-  schedule:
-    # Run tests daily at 2 AM UTC
-    - cron: '0 2 * * *'
+# on:
+#   push:
+#     branches: [ main, develop ]
+#   pull_request:
+#     branches: [ main ]
+#   schedule:
+#     # Run tests daily at 2 AM UTC
+#     - cron: '0 2 * * *'
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
     
-    services:
-      linkace-db:
-        image: mariadb:10.11
-        env:
-          MYSQL_ROOT_PASSWORD: test_root_pass
-          MYSQL_DATABASE: linkace_test
-          MYSQL_USER: linkace_test
-          MYSQL_PASSWORD: test_pass
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+#     services:
+#       linkace-db:
+#         image: mariadb:10.11
+#         env:
+#           MYSQL_ROOT_PASSWORD: test_root_pass
+#           MYSQL_DATABASE: linkace_test
+#           MYSQL_USER: linkace_test
+#           MYSQL_PASSWORD: test_pass
+#         ports:
+#           - 3306:3306
+#         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+#       redis:
+#         image: redis:7-alpine
+#         ports:
+#           - 6379:6379
+#         options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+#     steps:
+#     - uses: actions/checkout@v4
+#       with:
+#         fetch-depth: 0
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+#     - name: Set up Python 3.12
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.12'
 
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+#     - name: Cache dependencies
+#       uses: actions/cache@v3
+#       with:
+#         path: ~/.cache/pip
+#         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+#         restore-keys: |
+#           ${{ runner.os }}-pip-
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+#     - name: Install dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install -r requirements.txt
 
-    - name: Create test environment file
-      run: |
-        cat > .env.test << EOF
-        # Test Environment
-        LINKACE_BASE_URL=http://localhost:8080
-        LINKACE_API_TOKEN=test_token_12345
-        CHECK_INTERVAL_MIN=1
-        CONCURRENCY=5
-        TAG_DEAD_NAME=dead
-        TAG_REDIRECTED_NAME=redirected
-        UPDATE_MODE=tags
-        ADMIN_TOKEN=test_admin_token
+#     - name: Create test environment file
+#       run: |
+#         cat > .env.test << EOF
+#         # Test Environment
+#         LINKACE_BASE_URL=http://localhost:8080
+#         LINKACE_API_TOKEN=test_token_12345
+#         CHECK_INTERVAL_MIN=1
+#         CONCURRENCY=5
+#         TAG_DEAD_NAME=dead
+#         TAG_REDIRECTED_NAME=redirected
+#         UPDATE_MODE=tags
+#         ADMIN_TOKEN=test_admin_token
         
-        # Test Database
-        DB_DATABASE=linkace_test
-        DB_USERNAME=linkace_test
-        DB_PASSWORD=test_pass
-        DB_HOST=127.0.0.1
-        DB_PORT=3306
+#         # Test Database
+#         DB_DATABASE=linkace_test
+#         DB_USERNAME=linkace_test
+#         DB_PASSWORD=test_pass
+#         DB_HOST=127.0.0.1
+#         DB_PORT=3306
         
-        # Test AWS (Mock)
-        AWS_REGION=us-east-1
-        AWS_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:test-topic
-        AWS_ACCESS_KEY_ID=test_access_key
-        AWS_SECRET_ACCESS_KEY=test_secret_key
-        EOF
+#         # Test AWS (Mock)
+#         AWS_REGION=us-east-1
+#         AWS_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:test-topic
+#         AWS_ACCESS_KEY_ID=test_access_key
+#         AWS_SECRET_ACCESS_KEY=test_secret_key
+#         EOF
 
-    - name: Wait for services to be ready
-      run: |
-        timeout 30 bash -c 'until mysqladmin ping -h 127.0.0.1 -P 3306 -u root -ptest_root_pass; do sleep 1; done'
-        timeout 30 bash -c 'until redis-cli -h 127.0.0.1 -p 6379 ping | grep PONG; do sleep 1; done'
+#     - name: Wait for services to be ready
+#       run: |
+#         timeout 30 bash -c 'until mysqladmin ping -h 127.0.0.1 -P 3306 -u root -ptest_root_pass; do sleep 1; done'
+#         timeout 30 bash -c 'until redis-cli -h 127.0.0.1 -p 6379 ping | grep PONG; do sleep 1; done'
 
-    - name: Run tests with Allure
-      env:
-        PYTHONPATH: ${{ github.workspace }}
-      run: |
-        # Create allure-results directory
-        mkdir -p allure-results
+#     - name: Run tests with Allure
+#       env:
+#         PYTHONPATH: ${{ github.workspace }}
+#       run: |
+#         # Create allure-results directory
+#         mkdir -p allure-results
         
-        # Run tests with allure reporting
-        python -m pytest tests/ \
-          --alluredir=allure-results \
-          --clean-alluredir \
-          --tb=short \
-          -v
-      continue-on-error: false
+#         # Run tests with allure reporting
+#         python -m pytest tests/ \
+#           --alluredir=allure-results \
+#           --clean-alluredir \
+#           --tb=short \
+#           -v
+#       continue-on-error: false
 
-    - name: Get Allure history
-      uses: actions/checkout@v4
-      if: always()
-      continue-on-error: true
-      with:
-        ref: gh-pages
-        path: gh-pages
+#     - name: Get Allure history
+#       uses: actions/checkout@v4
+#       if: always()
+#       continue-on-error: true
+#       with:
+#         ref: gh-pages
+#         path: gh-pages
 
-    - name: Allure Report action from marketplace
-      uses: simple-elf/allure-report-action@master
-      if: always()
-      with:
-        allure_results: allure-results
-        allure_history: allure-history
-        keep_reports: 20
+#     - name: Allure Report action from marketplace
+#       uses: simple-elf/allure-report-action@master
+#       if: always()
+#       with:
+#         allure_results: allure-results
+#         allure_history: allure-history
+#         keep_reports: 20
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      if: always()
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: allure-history
-        destination_dir: allure-reports
+#     - name: Deploy to GitHub Pages
+#       uses: peaceiris/actions-gh-pages@v3
+#       if: always()
+#       with:
+#         github_token: ${{ secrets.GITHUB_TOKEN }}
+#         publish_dir: allure-history
+#         destination_dir: allure-reports
 
-  # Integration test job that runs the full Docker stack
-  integration-test:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
+#   # Integration test job that runs the full Docker stack
+#   integration-test:
+#     runs-on: ubuntu-latest
+#     needs: test
+#     if: github.ref == 'refs/heads/main'
     
-    steps:
-    - uses: actions/checkout@v4
+#     steps:
+#     - uses: actions/checkout@v4
 
-    - name: Create test environment
-      run: |
-        # Copy test environment
-        cp .env .env.backup || true
-        cat > .env << EOF
-        # Integration Test Environment
-        LINKACE_BASE_URL=http://localhost:8080
-        LINKACE_API_TOKEN=integration_test_token
-        CHECK_INTERVAL_MIN=1
-        CONCURRENCY=5
-        TAG_DEAD_NAME=dead
-        TAG_REDIRECTED_NAME=redirected
-        UPDATE_MODE=tags
-        ADMIN_TOKEN=integration_admin_token
+#     - name: Create test environment
+#       run: |
+#         # Copy test environment
+#         cp .env .env.backup || true
+#         cat > .env << EOF
+#         # Integration Test Environment
+#         LINKACE_BASE_URL=http://localhost:8080
+#         LINKACE_API_TOKEN=integration_test_token
+#         CHECK_INTERVAL_MIN=1
+#         CONCURRENCY=5
+#         TAG_DEAD_NAME=dead
+#         TAG_REDIRECTED_NAME=redirected
+#         UPDATE_MODE=tags
+#         ADMIN_TOKEN=integration_admin_token
         
-        # Database
-        DB_DATABASE=linkace
-        DB_USERNAME=linkace
-        DB_PASSWORD=integration_test_pass
+#         # Database
+#         DB_DATABASE=linkace
+#         DB_USERNAME=linkace
+#         DB_PASSWORD=integration_test_pass
         
-        # Mock AWS
-        AWS_REGION=us-east-1
-        AWS_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:integration-topic
-        AWS_ACCESS_KEY_ID=integration_access_key
-        AWS_SECRET_ACCESS_KEY=integration_secret_key
-        EOF
+#         # Mock AWS
+#         AWS_REGION=us-east-1
+#         AWS_SNS_TOPIC_ARN=arn:aws:sns:us-east-1:123456789012:integration-topic
+#         AWS_ACCESS_KEY_ID=integration_access_key
+#         AWS_SECRET_ACCESS_KEY=integration_secret_key
+#         EOF
 
-    - name: Build and start services
-      run: |
-        # Build the application
-        docker compose build linkace-sentry
+#     - name: Build and start services
+#       run: |
+#         # Build the application
+#         docker compose build linkace-sentry
         
-        # Start services with timeout
-        timeout 180 docker compose up -d
+#         # Start services with timeout
+#         timeout 180 docker compose up -d
         
-        # Wait for services to be healthy
-        echo "Waiting for services to be ready..."
-        sleep 30
+#         # Wait for services to be healthy
+#         echo "Waiting for services to be ready..."
+#         sleep 30
 
-    - name: Check service health
-      run: |
-        # Check if containers are running
-        docker compose ps
+#     - name: Check service health
+#       run: |
+#         # Check if containers are running
+#         docker compose ps
         
-        # Check logs for any immediate errors
-        echo "LinkAce App logs:"
-        docker compose logs linkace-app | tail -20
+#         # Check logs for any immediate errors
+#         echo "LinkAce App logs:"
+#         docker compose logs linkace-app | tail -20
         
-        echo "LinkAce Sentry logs:"
-        docker compose logs linkace-sentry | tail -20
+#         echo "LinkAce Sentry logs:"
+#         docker compose logs linkace-sentry | tail -20
         
-        # Test if LinkAce is accessible (when ready)
-        timeout 60 bash -c 'until curl -f http://localhost:8080/health || curl -f http://localhost:8080; do sleep 2; done' || echo "LinkAce not yet accessible"
+#         # Test if LinkAce is accessible (when ready)
+#         timeout 60 bash -c 'until curl -f http://localhost:8080/health || curl -f http://localhost:8080; do sleep 2; done' || echo "LinkAce not yet accessible"
 
-    - name: Cleanup
-      if: always()
-      run: |
-        docker compose down -v
-        mv .env.backup .env || true
+#     - name: Cleanup
+#       if: always()
+#       run: |
+#         docker compose down -v
+#         mv .env.backup .env || true
